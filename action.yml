@@ -1,0 +1,70 @@
+name: release-notify
+description: >-
+  Post a production release to Slack (#production-releases) in the standard Fullcast release format:
+  product, environment, result, version, who deployed/approved, and the changes since the last
+  successful release (TECOP-543).
+
+inputs:
+  product:
+    description: Product name, e.g. "CopyAI", "Fullcast", "Revenue Intelligence", "Ebsta", "Atrium", "Infrastructure".
+    required: true
+  environment:
+    description: Target environment.
+    default: production
+  status:
+    description: Result of the deploy. Pass `job.status` or a computed value. success | failure | cancelled.
+    required: true
+  slack-bot-token:
+    description: Slack bot token with chat:write (org secret SLACK_RELEASES_BOT_TOKEN).
+    required: true
+  slack-channel:
+    description: Slack channel ID or name (org variable SLACK_RELEASES_CHANNEL).
+    required: true
+  version:
+    description: Version that was deployed. Defaults to the commit SHA.
+    default: ""
+  previous-ref:
+    description: >-
+      Commit/tag of the previous release, used to list the changes. Defaults to the head commit of the last
+      successful run of this workflow on the same branch.
+    default: ""
+  deployed-by:
+    description: Who deployed. Defaults to the GitHub actor.
+    default: ""
+  approved-by:
+    description: Who approved the release (environment reviewer, QA), if there was an approval gate.
+    default: ""
+  details:
+    description: Product-specific one-liner, e.g. "Heroku v6423 · Vercel webapp + admin".
+    default: ""
+  github-token:
+    description: Token used to read commits, PRs and workflow runs (needs contents, pull-requests and actions read).
+    default: ${{ github.token }}
+  dry-run:
+    description: Print the Slack payload instead of posting it.
+    default: "false"
+
+outputs:
+  message-ts:
+    description: Slack timestamp of the posted message (empty on dry-run).
+    value: ${{ steps.notify.outputs.message-ts }}
+
+runs:
+  using: composite
+  steps:
+    - id: notify
+      shell: bash
+      run: node "${{ github.action_path }}/notify.mjs"
+      env:
+        RN_PRODUCT: ${{ inputs.product }}
+        RN_ENVIRONMENT: ${{ inputs.environment }}
+        RN_STATUS: ${{ inputs.status }}
+        RN_SLACK_TOKEN: ${{ inputs.slack-bot-token }}
+        RN_SLACK_CHANNEL: ${{ inputs.slack-channel }}
+        RN_VERSION: ${{ inputs.version }}
+        RN_PREVIOUS_REF: ${{ inputs.previous-ref }}
+        RN_DEPLOYED_BY: ${{ inputs.deployed-by }}
+        RN_APPROVED_BY: ${{ inputs.approved-by }}
+        RN_DETAILS: ${{ inputs.details }}
+        RN_GITHUB_TOKEN: ${{ inputs.github-token }}
+        RN_DRY_RUN: ${{ inputs.dry-run }}
