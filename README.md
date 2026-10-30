@@ -45,7 +45,8 @@ find the previous successful run of the same workflow.
 | `environment` | | `production` | |
 | `version` | | short commit SHA | image tag, release name, ... |
 | `sha` | | `github.sha` | the deployed commit, when a manual dispatch deploys a ref other than the workflow's own commit |
-| `previous-ref` | | last successful run of this workflow on this branch | commit or tag of the previous release |
+| `previous-ref` | | last successful run of this workflow on this branch | commit, tag or branch of the previous release |
+| `paths` | | every commit | monorepo: only list commits touching these paths (newline- or comma-separated) |
 | `deployed-by` | | `github.actor` | |
 | `approved-by` | | | environment reviewer or QA sign-off |
 | `details` | | | one line, e.g. Heroku release or services deployed |

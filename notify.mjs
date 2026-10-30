@@ -72,19 +72,63 @@ function describeCommit(commit) {
   return line;
 }
 
+/** Commits reachable from `ref` that touched `path` since `since`, as a sha -> commit map. */
+async function pathHistory(ref, path, since) {
+  const commits = new Map();
+  for (let page = 1; page <= 5; page++) {
+    const batch = await gh(
+      `/repos/${repo}/commits?sha=${ref}&path=${encodeURIComponent(path)}&since=${since}&per_page=100&page=${page}`,
+    );
+    for (const commit of batch) commits.set(commit.sha, commit);
+    if (batch.length < 100) break;
+  }
+  return commits;
+}
+
+/**
+ * Commits in `base..head` that touched any of `paths`, newest first, so a monorepo release only shows its own
+ * service's changes. It's the path history of `head` minus the path history of `base`. Branches merged after the
+ * previous release can carry older commits, so both histories reach back 90 days before the previous release.
+ */
+async function commitsTouching(paths, base, head) {
+  const baseDate = new Date((await gh(`/repos/${repo}/commits/${base}`)).commit.committer.date);
+  const since = new Date(baseDate.getTime() - 90 * 24 * 3600 * 1000).toISOString();
+  const commits = new Map();
+  for (const path of paths) {
+    const released = await pathHistory(base, path, since);
+    for (const [sha, commit] of await pathHistory(head, path, since)) {
+      if (!released.has(sha)) commits.set(sha, commit);
+    }
+  }
+  return [...commits.values()].sort((a, b) => b.commit.committer.date.localeCompare(a.commit.committer.date));
+}
+
 async function changesSection(currentSha) {
   let previous = input("PREVIOUS_REF");
+  const paths = input("PATHS").split(/[\n,]/).map(path => path.trim()).filter(Boolean);
   try {
     if (!previous) previous = await previousReleaseSha(currentSha);
     if (!previous) return { text: "_No previous release found to compare against._", compareUrl: null };
 
-    const compare = await gh(`/repos/${repo}/compare/${previous}...${currentSha}`);
-    const compareUrl = `${serverUrl}/${repo}/compare/${previous.slice(0, 12)}...${currentSha.slice(0, 12)}`;
-    const lines = compare.commits.slice().reverse().map(describeCommit).filter(Boolean);
+    // Resolve tags/branches to a commit so the diff link is always valid.
+    const base = (await gh(`/repos/${repo}/commits/${encodeURIComponent(previous)}`)).sha;
+    const compareUrl = `${serverUrl}/${repo}/compare/${base.slice(0, 12)}...${currentSha.slice(0, 12)}`;
+
+    let commits;
+    let total;
+    if (paths.length) {
+      commits = await commitsTouching(paths, base, currentSha);
+      total = commits.length;
+    } else {
+      const compare = await gh(`/repos/${repo}/compare/${base}...${currentSha}`);
+      commits = compare.commits.slice().reverse();
+      total = compare.total_commits;
+    }
+    const lines = commits.map(describeCommit).filter(Boolean);
     if (!lines.length) return { text: "_No code changes since the previous release (redeploy)._", compareUrl };
 
     // Whole lines only, so a Slack link is never cut in half (section text limit is 3000 chars).
-    let text = `*Changes since the previous release* (${compare.total_commits} commit${compare.total_commits === 1 ? "" : "s"}):`;
+    let text = `*Changes since the previous release* (${total} commit${total === 1 ? "" : "s"}):`;
     let shown = 0;
     for (const line of lines.slice(0, MAX_CHANGES)) {
       if (text.length + line.length > 2800) break;

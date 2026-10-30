@@ -33,6 +33,11 @@ inputs:
       Commit/tag of the previous release, used to list the changes. Defaults to the head commit of the last
       successful run of this workflow on the same branch.
     default: ""
+  paths:
+    description: >-
+      Only list commits that touched these paths (newline- or comma-separated), for a monorepo where each service
+      deploys separately. Defaults to every commit.
+    default: ""
   deployed-by:
     description: Who deployed. Defaults to the GitHub actor.
     default: ""
@@ -69,6 +74,7 @@ runs:
         RN_VERSION: ${{ inputs.version }}
         RN_SHA: ${{ inputs.sha }}
         RN_PREVIOUS_REF: ${{ inputs.previous-ref }}
+        RN_PATHS: ${{ inputs.paths }}
         RN_DEPLOYED_BY: ${{ inputs.deployed-by }}
         RN_APPROVED_BY: ${{ inputs.approved-by }}
         RN_DETAILS: ${{ inputs.details }}
