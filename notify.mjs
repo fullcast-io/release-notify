@@ -83,10 +83,16 @@ async function changesSection(currentSha) {
     const lines = compare.commits.slice().reverse().map(describeCommit).filter(Boolean);
     if (!lines.length) return { text: "_No code changes since the previous release (redeploy)._", compareUrl };
 
-    let text = `*Changes since the previous release* (${compare.total_commits} commit${compare.total_commits === 1 ? "" : "s"}):\n`;
-    text += lines.slice(0, MAX_CHANGES).join("\n");
-    if (lines.length > MAX_CHANGES) text += `\n…and ${lines.length - MAX_CHANGES} more (<${compareUrl}|full diff>)`;
-    return { text: text.slice(0, 2900), compareUrl };
+    // Whole lines only, so a Slack link is never cut in half (section text limit is 3000 chars).
+    let text = `*Changes since the previous release* (${compare.total_commits} commit${compare.total_commits === 1 ? "" : "s"}):`;
+    let shown = 0;
+    for (const line of lines.slice(0, MAX_CHANGES)) {
+      if (text.length + line.length > 2800) break;
+      text += `\n${line}`;
+      shown++;
+    }
+    if (lines.length > shown) text += `\n…and ${lines.length - shown} more (<${compareUrl}|full diff>)`;
+    return { text, compareUrl };
   } catch (error) {
     warn(`could not list changes: ${error.message}`);
     return { text: "_Could not list the changes for this release._", compareUrl: null };
