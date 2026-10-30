@@ -1,0 +1,36 @@
+name: Self-test
+
+# Posts one test message to the releases channel with the action from this commit, to check the Slack
+# app, the org secret and variable, and the message format. Run it by hand after changing the action.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Print the payload instead of posting
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Post a test release
+        uses: ./
+        with:
+          product: release-notify
+          environment: test
+          status: success
+          version: ${{ github.sha }}
+          previous-ref: dbf0a01
+          details: Test post from the release-notify self-test, please ignore
+          slack-bot-token: ${{ secrets.SLACK_RELEASES_BOT_TOKEN }}
+          slack-channel: ${{ vars.SLACK_RELEASES_CHANNEL }}
+          dry-run: ${{ inputs.dry-run }}
