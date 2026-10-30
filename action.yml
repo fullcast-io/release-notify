@@ -23,6 +23,11 @@ inputs:
   version:
     description: Version that was deployed. Defaults to the commit SHA.
     default: ""
+  sha:
+    description: >-
+      Commit that was deployed, when it isn't the workflow's own commit (e.g. a manual dispatch that deploys
+      another ref). Defaults to github.sha.
+    default: ""
   previous-ref:
     description: >-
       Commit/tag of the previous release, used to list the changes. Defaults to the head commit of the last
@@ -62,6 +67,7 @@ runs:
         RN_SLACK_TOKEN: ${{ inputs.slack-bot-token }}
         RN_SLACK_CHANNEL: ${{ inputs.slack-channel }}
         RN_VERSION: ${{ inputs.version }}
+        RN_SHA: ${{ inputs.sha }}
         RN_PREVIOUS_REF: ${{ inputs.previous-ref }}
         RN_DEPLOYED_BY: ${{ inputs.deployed-by }}
         RN_APPROVED_BY: ${{ inputs.approved-by }}

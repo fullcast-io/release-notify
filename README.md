@@ -44,6 +44,7 @@ find the previous successful run of the same workflow.
 | `slack-channel` | yes | | org variable `SLACK_RELEASES_CHANNEL` |
 | `environment` | | `production` | |
 | `version` | | short commit SHA | image tag, release name, ... |
+| `sha` | | `github.sha` | the deployed commit, when a manual dispatch deploys a ref other than the workflow's own commit |
 | `previous-ref` | | last successful run of this workflow on this branch | commit or tag of the previous release |
 | `deployed-by` | | `github.actor` | |
 | `approved-by` | | | environment reviewer or QA sign-off |

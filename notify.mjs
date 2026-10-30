@@ -97,7 +97,7 @@ async function main() {
   const product = input("PRODUCT");
   const environment = input("ENVIRONMENT") || "production";
   const status = STATUS[input("STATUS")] ?? { emoji: ":grey_question:", word: input("STATUS") || "unknown" };
-  const sha = env.GITHUB_SHA;
+  const sha = input("SHA") || env.GITHUB_SHA;
   const version = input("VERSION") || sha.slice(0, 7);
   const runUrl = `${serverUrl}/${repo}/actions/runs/${env.GITHUB_RUN_ID}`;
 
