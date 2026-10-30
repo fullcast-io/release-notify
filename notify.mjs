@@ -193,7 +193,16 @@ async function main() {
   });
   const result = await response.json();
   if (!result.ok) {
-    warn(`Slack rejected the release message: ${result.error}`);
+    let hint = "";
+    if (result.error === "not_in_channel" || result.error === "channel_not_found") {
+      // Name the bot the token belongs to, so it's clear which app to invite to the channel.
+      const identity = await fetch("https://slack.com/api/auth.test", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${input("SLACK_TOKEN")}` },
+      }).then(r => r.json()).catch(() => ({}));
+      if (identity.ok) hint = ` (the token belongs to bot @${identity.user} in ${identity.team}; invite it to the channel)`;
+    }
+    warn(`Slack rejected the release message: ${result.error}${hint}`);
     return;
   }
   console.log(`Posted release to ${payload.channel} (ts ${result.ts})`);
