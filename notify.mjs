@@ -46,7 +46,7 @@ async function previousReleaseSha(currentSha) {
   return previous?.head_sha ?? null;
 }
 
-/** One line per change: title, PR link, author and Linear issues. Merge-branch noise is skipped. */
+/** One change: its title and its line (title, PR link, author, Linear issues). Merge-branch noise is skipped. */
 function describeCommit(commit) {
   const [firstLine, , ...rest] = commit.commit.message.split("\n");
   if (/^Merge (remote-tracking )?branch /.test(firstLine)) return null;
@@ -61,7 +61,10 @@ function describeCommit(commit) {
   title = title.replace(/\s*\(#\d+\)\s*$/, "");
 
   const author = commit.author?.login ?? commit.commit.author?.name ?? "unknown";
-  const linear = [...new Set(title.match(/\b[A-Z][A-Z0-9]{1,9}-\d+\b/g) ?? [])];
+  // Uppercase IDs anywhere, plus a lowercase one in a conventional-commit scope, e.g. "fix(ebs-607): ...".
+  const scoped = title.match(/^\w+\(([a-z][a-z0-9]{1,9}-\d+)\)!?:/)?.[1]?.toUpperCase();
+  const ids = title.match(/\b[A-Z][A-Z0-9]{1,9}-\d+\b/g) ?? [];
+  const linear = [...new Set(scoped ? [scoped, ...ids] : ids)];
 
   let line = `• ${escapeSlack(title)}`;
   if (pr) line += ` (<${serverUrl}/${repo}/pull/${pr}|#${pr}>)`;
@@ -69,7 +72,14 @@ function describeCommit(commit) {
   if (linear.length) {
     line += ` · ${linear.map(id => `<https://linear.app/${linearWorkspace}/issue/${id}|${id}>`).join(", ")}`;
   }
-  return line;
+  return { title, pr, line };
+}
+
+/** Lines for the changes, newest first. A merged PR's own commit with the same title is dropped in favour of the PR. */
+function changeLines(commits) {
+  const changes = commits.map(describeCommit).filter(Boolean);
+  const titlesWithPr = new Set(changes.filter(change => change.pr).map(change => change.title));
+  return changes.filter(change => change.pr || !titlesWithPr.has(change.title)).map(change => change.line);
 }
 
 /** Commits reachable from `ref` that touched `path` since `since`, as a sha -> commit map. */
@@ -124,11 +134,14 @@ async function changesSection(currentSha) {
       commits = compare.commits.slice().reverse();
       total = compare.total_commits;
     }
-    const lines = commits.map(describeCommit).filter(Boolean);
+    const lines = changeLines(commits);
+    // Count changes, not commits: merge noise and duplicates aren't listed. The compare API lists at most 250
+    // commits, so beyond that the dropped share is estimated from the listed ones.
+    total = Math.max(lines.length, total - (commits.length - lines.length));
     if (!lines.length) return { text: "_No code changes since the previous release (redeploy)._", compareUrl };
 
     // Whole lines only, so a Slack link is never cut in half (section text limit is 3000 chars).
-    let text = `*Changes since the previous release* (${total} commit${total === 1 ? "" : "s"}):`;
+    let text = `*Changes since the previous release* (${total} change${total === 1 ? "" : "s"}):`;
     let shown = 0;
     for (const line of lines.slice(0, MAX_CHANGES)) {
       if (text.length + line.length > 2800) break;
